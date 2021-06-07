@@ -1,0 +1,165 @@
+from smbus import SMBus
+import time
+addr = 0x8
+BUS = SMBus(1)
+num = 1
+
+import RPi.GPIO as GPIO
+
+R1 = 7
+R2 = 11
+R3 = 13
+R4 = 15
+
+C1 = 12
+C2 = 16
+C3 = 18
+C4 = 22
+
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BOARD)
+
+GPIO.setup(R1, GPIO.OUT)
+GPIO.setup(R2, GPIO.OUT)
+GPIO.setup(R3, GPIO.OUT)
+GPIO.setup(R4, GPIO.OUT)
+
+GPIO.setup(C1, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
+GPIO.setup(C2, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
+GPIO.setup(C3, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
+GPIO.setup(C4, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
+
+keypadPressed = -1
+toggle = 0
+
+secretCode = "00"
+LOCK = "11"
+UNLOCK = "22"
+TOGGLE = "33"
+input = ""
+
+def keypadCallback(channel):
+    global keypadPressed
+    
+    if(keypadPressed == -1):
+        keypadPressed = channel
+        
+GPIO.add_event_detect(C1, GPIO.RISING, callback=keypadCallback)
+GPIO.add_event_detect(C2, GPIO.RISING, callback=keypadCallback)
+GPIO.add_event_detect(C3, GPIO.RISING, callback=keypadCallback)
+GPIO.add_event_detect(C4, GPIO.RISING, callback=keypadCallback)
+                      
+def setAllLines(state):
+    GPIO.output(R1, state)
+    GPIO.output(R2, state)
+    GPIO.output(R3, state)
+    GPIO.output(R4, state)
+    
+def specialKeyPress():
+    global input
+    global toggle
+    pressed = False
+    
+    GPIO.output(R3, GPIO.HIGH)
+    
+    if(GPIO.input(C4) == 1):
+        print ("Input Cleared")
+        pressed = True
+    
+    GPIO.output(R3, GPIO.LOW)
+    GPIO.output(R1, GPIO.HIGH)
+    
+    if(not pressed and GPIO.input(C4) == 1):
+        print("You entered value is "+input)
+        
+        if input == secretCode:
+            print("Code correct!")
+            
+        elif input == LOCK:
+            print("Locked")
+            BUS.write_byte(addr, 0x0)
+            time.sleep(0.25)
+            BUS.write_byte(addr, 0x3)
+            
+        elif input == UNLOCK:
+            print("Unlocked")
+            BUS.write_byte(addr, 0x1)
+            time.sleep(0.25)
+            BUS.write_byte(addr, 0x3)
+            
+        elif input == TOGGLE:
+            print("Toggling")
+            if toggle == 0:
+                print("Toggle was 0, now 1")
+                print("Car was unlocked, now locked")
+                toggle = 1
+                BUS.write_byte(addr, 0x0)
+                time.sleep(0.25)
+                BUS.write_byte(addr, 0x3)
+            else:
+                print("Toggle was 1, now 0")
+                print("Car was locked, now unlocked")
+                toggle = 0
+                BUS.write_byte(addr, 0x1)
+                time.sleep(0.25)
+                BUS.write_byte(addr, 0x3)
+                
+        else:
+            print("Invalid Input")
+            BUS.write_byte(addr, 0x0)
+            time.sleep(0.1)
+            BUS.write_byte(addr, 0x1)
+            time.sleep(0.1)
+            BUS.write_byte(addr, 0x0)
+            time.sleep(0.1)
+            BUS.write_byte(addr, 0x1)
+            time.sleep(0.1)
+            BUS.write_byte(addr, 0x0)
+            time.sleep(0.1)
+            BUS.write_byte(addr, 0x1)
+            time.sleep(0.1)
+            BUS.write_byte(addr, 0x3)
+        
+        pressed = True
+    
+    GPIO.output(R1, GPIO.LOW)
+    
+    if(pressed):
+        input = ""
+    
+    return pressed
+    
+def printCharacter(row, character):
+    global input
+    GPIO.output(row, GPIO.HIGH)
+    if(GPIO.input(C1) == 1):
+        input = input + character[0]
+    if(GPIO.input(C2) == 1):
+        input = input + character[1]
+    if(GPIO.input(C3) == 1):
+        input = input + character[2]
+    if(GPIO.input(C4) == 1):
+        input = input + character[3]
+    GPIO.output(row, GPIO.LOW)
+
+try:
+    while True:
+        if keypadPressed != -1:
+            setAllLines(GPIO.HIGH)
+            if GPIO.input(keypadPressed) == 0:
+                keypadPressed = -1
+            else:
+                time.sleep(0.1)
+        else:
+            if(not specialKeyPress()):
+                
+                printCharacter(R1, ["1","2","3","A"])
+                printCharacter(R2, ["4","5","6","B"])
+                printCharacter(R3, ["7","8","9","C"])
+                printCharacter(R4, ["*","0","#","D"])
+                time.sleep(0.1)
+            else:
+                time.sleep(0.1)
+                
+except KeyboardInterrupt:
+    print("Stopped")
