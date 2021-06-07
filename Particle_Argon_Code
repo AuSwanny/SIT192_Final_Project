@@ -1,0 +1,70 @@
+#include<Wire.h>
+
+int led_built_in = D7;
+int led_UNLOCK = D6;
+int led_LOCK = D5;
+
+void setup() {
+    Wire.begin(0x8);
+    Wire.onReceive(receiveEvent);
+    
+    pinMode(led_built_in, OUTPUT);
+    pinMode(led_LOCK, OUTPUT);
+    pinMode(led_UNLOCK, OUTPUT);
+    digitalWrite(led_built_in, LOW);
+    digitalWrite(led_LOCK, LOW);
+    digitalWrite(led_UNLOCK, LOW);
+}
+
+void receiveEvent(int howMany) {
+    while (Wire.available()) {
+        char c = Wire.read();
+        if (c == 0 or c == 2){
+            LOCK();
+        }
+        else if (c == 1){
+            UNLOCK();
+        }
+        else if (c == 4){
+            Built_in_on();
+        }
+        else if (c == 5){
+            Built_in_off();
+        }
+        else if (c == 3){
+            CLEAR();
+        }
+    }
+}
+
+void loop() {
+    delay(1000);
+}
+
+void CLEAR() {
+    //digitalWrite(led1, 1);
+    digitalWrite(led_LOCK, 0);
+    digitalWrite(led_UNLOCK, 0);
+    
+}
+
+void UNLOCK() {
+    //digitalWrite(led1, 1);
+    digitalWrite(led_LOCK, 0);
+    digitalWrite(led_UNLOCK, 1);
+    
+}
+
+void LOCK() {
+    //digitalWrite(led1, 0);
+    digitalWrite(led_UNLOCK, 0);
+    digitalWrite(led_LOCK, 1);
+}
+
+void Built_in_on() {
+    digitalWrite(led_built_in, 1);
+}
+
+void Built_in_off() {
+    digitalWrite(led_built_in, 0);
+}
